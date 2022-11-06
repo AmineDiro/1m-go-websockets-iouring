@@ -1,12 +1,13 @@
 package main
 
 import (
-	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"syscall"
+
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 )
 
 var epoller *epoll
