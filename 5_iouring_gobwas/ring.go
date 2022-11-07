@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net"
 	"reflect"
 	"sync"
 
+	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/iceber/iouring-go"
 	"github.com/sirupsen/logrus"
@@ -78,7 +80,7 @@ func (wr *WSRing) read(result iouring.Result) {
 	logrus.WithFields(logrus.Fields{
 		"id":          result.Fd(),
 		"Connection":  wr.conns[result.Fd()].RemoteAddr(),
-		"bytesToRead": result.ReturnValue0(),
+		"bytesToRead": num,
 		"value1":      result.ReturnValue1(),
 	}).Info("Result")
 
@@ -89,8 +91,11 @@ func (wr *WSRing) read(result iouring.Result) {
 	buffer, _ := result.GetRequestBuffer()
 	content := buffer[:num]
 
-	msg, _, err := wsutil.ReadClientData(buffer)
-	fmt.Printf("Content: %s\n", msg)
+	// TODO : Parse Message
+	r := bytes.NewReader(content)
+	msg := []wsutil.Message{}
+	msg, _ = wsutil.ReadMessage(r, ws.StateServerSide, msg)
+	fmt.Printf("Content: %#v\n", msg)
 
 	// This could be slow :
 	// Allocate buffer on each read !!

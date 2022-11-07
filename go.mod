@@ -8,5 +8,6 @@ require (
 	github.com/gobwas/ws v1.0.3
 	github.com/gorilla/websocket v1.4.1
 	github.com/iceber/iouring-go v0.0.0-20220609112130-b1dc8dd9fbfd // indirect
-	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
+	github.com/sirupsen/logrus v1.9.0 // indirect
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
 )
