@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"syscall"
 
+	_ "net/http/pprof"
+
 	"github.com/gobwas/ws"
 )
 
@@ -34,7 +36,7 @@ func main() {
 	}
 
 	// Creating Ring and starting
-	ring, _ = MkRing(1024)
+	ring, _ = MkRing(1024, 2)
 	go ring.Loop()
 
 	// Start WS Server

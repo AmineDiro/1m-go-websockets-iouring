@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"io"
 	"log"
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 var (

@@ -1,50 +1,55 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"net"
 	"reflect"
 	"sync"
 
-	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
 	"github.com/iceber/iouring-go"
-	"github.com/sirupsen/logrus"
 )
 
-const readSize int = 1024
+const readSize int = 100
 
 type WSRing struct {
 	iouring    *iouring.IOURing
 	resultChan chan iouring.Result
 	mu         *sync.RWMutex
 	conns      map[int]net.Conn
+	memPool    chan *[]byte
 }
 
-func MkRing(entries uint) (*WSRing, error) {
+func MkRing(entries uint, poolSize uint) (*WSRing, error) {
 	ring, err := iouring.New(entries)
 	if err != nil {
 		return nil, err
 	}
+	pool, _ := seedPool(poolSize)
 	return &WSRing{
 		iouring:    ring,
 		resultChan: make(chan iouring.Result),
 		conns:      make(map[int]net.Conn),
+		memPool:    pool,
 		mu:         &sync.RWMutex{},
 	}, nil
 }
 
+func seedPool(poolSize uint) (chan *[]byte, error) {
+	pool := make(chan *[]byte, poolSize)
+	for i := 0; i < int(poolSize); i++ {
+		buf := make([]byte, readSize)
+		pool <- &buf
+	}
+	return pool, nil
+}
+
 // Reads from the io_uring CQ
 func (wr *WSRing) Loop() {
-	log.Println("Starting CQ loop")
-	for {
-		result := <-wr.resultChan
+	for result := range wr.resultChan {
 		switch result.Opcode() {
-
 		case iouring.OpRead:
-			wr.read(result)
+			wr.Read(result)
 
 		case iouring.OpClose:
 			wr.close(result)
@@ -61,8 +66,14 @@ func (wr *WSRing) Add(conn net.Conn) error {
 
 	wr.conns[fd] = conn
 
-	buffer := make([]byte, readSize)
-	prep := iouring.Read(fd, buffer)
+	if len(wr.conns)%100 == 0 {
+		log.Printf("Total number of connections: %v", len(wr.conns))
+	}
+	// TODO : check size
+	buffer := <-wr.memPool
+	log.Printf("Get buffer, conn %d\n", fd)
+
+	prep := iouring.Read(fd, *buffer)
 	if _, err := wr.iouring.SubmitRequest(prep, wr.resultChan); err != nil {
 		log.Fatal("Ring add error", err)
 		return err
@@ -70,41 +81,35 @@ func (wr *WSRing) Add(conn net.Conn) error {
 	return nil
 }
 
-func (wr *WSRing) read(result iouring.Result) {
-	wr.mu.RLock()
-	defer wr.mu.RUnlock()
-
-	num := result.ReturnValue0().(int)
+func (wr *WSRing) Read(result iouring.Result) {
 	err := result.Err()
+	buffer, _ := result.GetRequestBuffer()
+	log.Printf("Put Buffer, conn %d\n", result.Fd())
+	wr.memPool <- &buffer
 
-	logrus.WithFields(logrus.Fields{
-		"id":          result.Fd(),
-		"Connection":  wr.conns[result.Fd()].RemoteAddr(),
-		"bytesToRead": num,
-		"value1":      result.ReturnValue1(),
-	}).Info("Result")
+	// num := result.ReturnValue0().(int)
+	// content := buffer[:num]
+
+	// TODO : Parse Message
+	// r := bytes.NewReader(content)
+	// msg := []wsutil.Message{}
+	// msg, _ = wsutil.ReadMessage(r, ws.StateServerSide, msg)
+
+	// logrus.WithFields(logrus.Fields{
+	// 	"id":          result.Fd(),
+	// 	"Connection":  wr.conns[result.Fd()].RemoteAddr(),
+	// 	"bytesToRead": num,
+	// 	// "msg":         string(msg),
+	// }).Info("Read Result")
 
 	if err != nil {
 		log.Fatal("Read error", err)
 	}
 
-	buffer, _ := result.GetRequestBuffer()
-	content := buffer[:num]
-
-	// TODO : Parse Message
-	r := bytes.NewReader(content)
-	msg := []wsutil.Message{}
-	msg, _ = wsutil.ReadMessage(r, ws.StateServerSide, msg)
-	fmt.Printf("Content: %#v\n", msg)
-
-	// This could be slow :
-	// Allocate buffer on each read !!
-	// TODO: Reuse the same buffer
-	// buffer := make([]byte, readSize)
-	prep := iouring.Read(result.Fd(), buffer)
-	if _, err := wr.iouring.SubmitRequest(prep, wr.resultChan); err != nil {
-		panic(err)
-	}
+	// prep := iouring.Read(result.Fd(), buffer)
+	// if _, err := wr.iouring.SubmitRequest(prep, wr.resultChan); err != nil {
+	// 	panic(err)
+	// }
 }
 
 func (wr *WSRing) close(result iouring.Result) {
