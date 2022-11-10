@@ -25,6 +25,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+
 	// Increase resources limitations
 	var rLimit syscall.Rlimit
 	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); err != nil {
@@ -36,7 +37,7 @@ func main() {
 	}
 
 	// Creating Ring and starting
-	ring, _ = MkRing(1024, 2)
+	ring, _ = MkRing(10000, 1)
 	go ring.Loop()
 
 	// Start WS Server

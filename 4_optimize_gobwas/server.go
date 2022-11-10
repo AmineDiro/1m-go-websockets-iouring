@@ -36,11 +36,11 @@ func main() {
 	}
 
 	// Enable pprof hooks
-	go func() {
-		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-			log.Fatalf("pprof failed: %v", err)
-		}
-	}()
+	// go func() {
+	// 	if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+	// 		log.Fatalf("pprof failed: %v", err)
+	// 	}
+	// }()
 
 	// Start epoll
 	var err error

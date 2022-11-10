@@ -10,7 +10,7 @@ import (
 	"github.com/iceber/iouring-go"
 )
 
-const readSize int = 100
+const readSize int = 64
 
 type WSRing struct {
 	iouring    *iouring.IOURing
@@ -59,20 +59,16 @@ func (wr *WSRing) Loop() {
 
 func (wr *WSRing) Add(conn net.Conn) error {
 
-	wr.mu.Lock()
-	defer wr.mu.Unlock()
-
 	fd := websocketFD(conn)
 
+	wr.mu.Lock()
+	defer wr.mu.Unlock()
 	wr.conns[fd] = conn
-
 	if len(wr.conns)%100 == 0 {
 		log.Printf("Total number of connections: %v", len(wr.conns))
 	}
-	// TODO : check size
-	buffer := <-wr.memPool
-	log.Printf("Get buffer, conn %d\n", fd)
 
+	buffer := <-wr.memPool
 	prep := iouring.Read(fd, *buffer)
 	if _, err := wr.iouring.SubmitRequest(prep, wr.resultChan); err != nil {
 		log.Fatal("Ring add error", err)
@@ -84,7 +80,6 @@ func (wr *WSRing) Add(conn net.Conn) error {
 func (wr *WSRing) Read(result iouring.Result) {
 	err := result.Err()
 	buffer, _ := result.GetRequestBuffer()
-	log.Printf("Put Buffer, conn %d\n", result.Fd())
 	wr.memPool <- &buffer
 
 	// num := result.ReturnValue0().(int)
