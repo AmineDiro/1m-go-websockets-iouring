@@ -46,7 +46,8 @@ func seedPool(poolSize uint) (chan *[]byte, error) {
 
 // Reads from the io_uring CQ
 func (wr *WSRing) Loop() {
-	for result := range wr.resultChan {
+	var result iouring.Result
+	for result = range wr.resultChan {
 		switch result.Opcode() {
 		case iouring.OpRead:
 			wr.Read(result)

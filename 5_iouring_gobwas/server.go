@@ -37,7 +37,7 @@ func main() {
 	}
 
 	// Creating Ring and starting
-	ring, _ = MkRing(10000, 1)
+	ring, _ = MkRing(8024, 10)
 	go ring.Loop()
 
 	// Start WS Server
